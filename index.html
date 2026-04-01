@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BILLION SPORTS</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+background:#0b0f1a;
+color:#fff;
+}
+
+/* HEADER */
+header{
+background:#111827;
+padding:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+position:sticky;
+top:0;
+}
+
+.logo{
+font-weight:bold;
+color:#00ffcc;
+}
+
+/* CONTAINER */
+.container{
+padding:10px;
+}
+
+/* INPUTS */
+input,button{
+padding:10px;
+margin:5px;
+border-radius:10px;
+border:none;
+}
+
+input{
+width:45%;
+}
+
+/* BUTTON */
+button{
+background:#00ffcc;
+cursor:pointer;
+font-weight:bold;
+}
+
+/* MATCH CARD */
+.card{
+background:#111827;
+margin:10px 0;
+padding:15px;
+border-radius:15px;
+border:1px solid #222;
+transition:0.3s;
+}
+
+.card:hover{
+transform:scale(1.02);
+}
+
+/* LIVE */
+.live{
+color:red;
+font-weight:bold;
+}
+
+/* FLEX */
+.row{
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+/* SMALL TEXT */
+.small{
+color:#aaa;
+font-size:12px;
+}
+
+/* SEARCH */
+#search{
+width:90%;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="logo">BILLION SPORTS</div>
+<div id="status">Offline</div>
+</header>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div>
+<input id="user" placeholder="username">
+<input id="pass" type="password" placeholder="password">
+<button onclick="login()">Login</button>
+<button onclick="register()">Register</button>
+</div>
+
+<!-- SEARCH -->
+<input id="search" placeholder="Search matches...">
+
+<!-- MATCHES -->
+<div id="matches"></div>
+
+</div>
+
+<script>
+const API="https://athimni-score-1919-1.onrender.com";
+
+let currentUser=null;
+let allMatches=[];
+
+/* REGISTER */
+async function register(){
+await fetch(API+"/register",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+username:user.value,
+password:pass.value
+})
+});
+alert("Account created");
+}
+
+/* LOGIN */
+async function login(){
+let r=await fetch(API+"/login",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+username:user.value,
+password:pass.value
+})
+});
+
+let d=await r.json();
+
+if(d.success){
+currentUser=d.user;
+document.getElementById("status").innerText="Online";
+alert("Welcome "+currentUser.username);
+}else{
+alert("Login failed");
+}
+}
+
+/* LOAD MATCHES */
+async function load(){
+try{
+let r=await fetch(API+"/matches");
+let d=await r.json();
+allMatches=d.matches || [];
+render(allMatches);
+}catch(e){
+document.getElementById("status").innerText="Error";
+}
+}
+
+/* RENDER */
+function render(data){
+let box=document.getElementById("matches");
+
+box.innerHTML=data.slice(0,30).map(m=>{
+let live=m.status==="IN_PLAY";
+
+return `
+<div class="card">
+<div class="row">
+<b>${m.homeTeam.name}</b>
+<span>VS</span>
+<b>${m.awayTeam.name}</b>
+</div>
+
+<div class="small">
+${m.competition?.name || "League"}
+</div>
+
+<div>
+<span class="${live?'live':''}">
+${live?'LIVE':m.status}
+</span>
+</div>
+
+<div>
+Score: ${m.score?.fullTime?.home ?? 0} - ${m.score?.fullTime?.away ?? 0}
+</div>
+
+<button onclick="fav('${m.homeTeam.name}')">⭐ Favorite</button>
+</div>
+`;
+}).join("");
+}
+
+/* FAVORITE */
+async function fav(team){
+if(!currentUser){
+alert("Login first");
+return;
+}
+
+await fetch(API+"/fav",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+username:currentUser.username,
+team
+})
+});
+
+alert("Added to favorites");
+}
+
+/* SEARCH */
+document.getElementById("search").oninput=(e)=>{
+let v=e.target.value.toLowerCase();
+
+render(allMatches.filter(m=>
+m.homeTeam.name.toLowerCase().includes(v) ||
+m.awayTeam.name.toLowerCase().includes(v)
+));
+};
+
+/* AUTO REFRESH */
+load();
+setInterval(load,30000);
+</script>
+
+</body>
+</html>
